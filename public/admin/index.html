@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080808"><meta name="robots" content="noindex,nofollow"><title>GymBro · Administración</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/admin/admin.css"><script src="/admin/admin.js" defer></script></head>
+<body>
+<header class="top"><div class="top-inner"><div class="brand"><img src="/logo.png" alt="GymBro Huevos"><div><div class="brand-title">Mi GymBro</div><div class="brand-sub">Administración de retiros</div></div></div><a href="/" class="store-link">Portal de comercios ↗</a></div></header>
+<main class="wrap admin-wrap">
+<div id="message" class="message" role="status" aria-live="polite" tabindex="-1"></div>
+<section id="login" class="admin-login search-panel"><span class="eyebrow">Solo administrador</span><h1>Tu negocio, a mano.</h1><p class="muted">Cargá pedidos y controlá las tres sucursales.</p><form id="loginForm"><div class="field"><label for="password">Tu clave de administrador</label><input id="password" type="password" required autocomplete="current-password" maxlength="100"></div><button class="primary full" type="submit">Entrar al panel</button></form></section>
+<div id="workspace" hidden>
+<div class="workspace-head"><div><span class="eyebrow">Panel de administración</span><h1>Todo en un lugar.</h1></div><button id="logout" class="secondary" type="button">Cerrar sesión</button></div>
+<nav class="admin-nav" aria-label="Secciones"><button data-panel="ordersPanel" class="active" aria-current="page">Pedidos</button><button data-panel="newPanel">Nuevo pedido</button><button data-panel="stockPanel">Stock y reposiciones</button></nav>
+<div id="stockError" class="message error" role="alert" hidden></div>
+<div id="stockCards" class="stock-grid" aria-label="Stock por sucursal"></div>
+
+<section id="ordersPanel" class="admin-panel">
+<div class="section-title"><h2>Pedidos</h2><button id="refresh" class="secondary">Actualizar</button></div>
+<form id="filterForm" class="filters"><div class="grow"><label for="filterQuery">Buscar cliente o pedido</label><input id="filterQuery" type="search" placeholder="Nombre, celular, DNI o código" maxlength="120"></div><div><label for="filterBranch">Sucursal</label><select id="filterBranch"><option value="">Todas</option value="COLON">Colón</option><option value="ESTRADA">Estrada</option><option value="MARCONI">Marconi</option></select></div><div><label for="filterState">Estado</label><select id="filterState"><option value="PENDIENTE">Pendientes</option><option value="">Todos</option><option value="ENTREGADO">Entregados</option><option value="CANCELADO">Cancelados</option></select></div><button type="submit" class="primary">Buscar</button></form>
+<p id="listCount" class="muted count" aria-live="polite"></p><div id="orders"></div><div class="pagination"><button id="previous" class="secondary" disabled>Anterior</button><button id="next" class="secondary" disabled>Siguiente</button></div>
+</section>
+
+<section id="newPanel" class="admin-panel" hidden><div class="section-title"><div><h2>Nuevo pedido</h2><p class="muted">Al guardar, reservamos los maples en la sucursal elegida.</p></div></div>
+<form id="orderForm" class="search-panel"><fieldset id="orderFields"><div class="form-grid">
+<div class="span-2"><label for="name">Nombre del cliente *</label><input id="name" required maxlength="120" autocomplete="name"></div>
+<div><label for="phone">Celular</label><input id="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="2231234567"><p class="help">Completá al menos celular o DNI.</p></div>
+<div><label for="dni">DNI</label><input id="dni" inputmode="numeric" pattern="[0-9]{7,8}" maxlength="8" placeholder="Sin puntos"></div>
+<div><label for="quantity">Cantidad de maples *</label><input id="quantity" type="number" required min="1" max="1000" step="1" inputmode="numeric" value="1"></div>
+<div><label for="branch">Sucursal de retiro *</label><select id="branch" required><option value="COLON">Colón</option><option value="ESTRADA">Estrada</option><option value="MARCONI">Marconi</option></select><p id="available" class="help"></p></div>
+<div class="span-2"><label for="extras">Otros productos</label><input id="extras" maxlength="500" placeholder="Ej.: 1 creatina de 250 g"><p class="help">Se muestran al comercio. Esta etapa controla stock de maples; los pedidos con extras no se reasignan automáticamente.</p></div>
+<div class="span-2"><label for="notes">Observaciones internas</label><textarea id="notes" rows="3" maxlength="1000" placeholder="Información para tu administración"></textarea></div>
+<label class="check-label span-2" for="paid"><input id="paid" type="checkbox" required><span>Ya verifiqué el pago de este pedido.</span></label>
+</div></fieldset><p id="orderPending" class="notice" hidden>Hay un guardado pendiente de confirmar. Reintentá la misma solicitud antes de crear otro pedido.</p><button id="saveOrder" class="primary full" type="submit">Guardar pedido y reservar stock</button></form>
+<div id="created" class="message success" hidden></div>
+</section>
+
+<section id="stockPanel" class="admin-panel" hidden><div class="section-title"><div><h2>Stock y reposiciones</h2><p class="muted">Registrá la mercadería que efectivamente dejaste en el local.</p></div></div>
+<form id="stockForm" class="search-panel"><fieldset id="stockFields"><div class="form-grid">
+<div><label for="stockBranch">Sucursal</label><select id="stockBranch"><option value="COLON">Colón</option><option value="ESTRADA">Estrada</option><option value="MARCONI">Marconi</option></select></div>
+<div><label for="stockQuantity">Maples que agregás</label><input id="stockQuantity" required type="number" min="1" max="10000" step="1" inputmode="numeric"></div>
+<div class="span-2"><label for="stockType">Tipo de carga</label><select id="stockType"><option value="REFUERZO">Reposición / refuerzo</option value="STOCK_INICIAL">Stock inicial (solo al comenzar)</option></select><p class="help">Los lunes cargá lo que agregás, no el total que quedó en el local.</p></div>
+<div class="span-2"><label for="stockNotes">Observaciones</label><textarea id="stockNotes" maxlength="500" rows="2" placeholder="Ej.: reposición del lunes"></textarea></div>
+</div></fieldset><p id="stockPending" class="notice" hidden>Hay una reposición pendiente de confirmar. Reintentá para evitar cargarla dos veces.</p><button id="saveStock" class="primary full" type="submit">Registrar ingreso de stock</button></form>
+</section>
+</div>
+<dialog id="cancelDialog" aria-labelledby="cancelTitle"><h2 id="cancelTitle">¿Cancelar el pedido?</h2><p id="cancelText"></p><p class="help">Se liberará la reserva. El reintegro del pago se gestiona por separado.</p><div class="dialog-actions"><button id="confirmCancel" class="primary">Sí, cancelar pedido</button><button id="backCancel" class="secondary">Volver</button></div></dialog>
+<footer class="footer"><b>GymBro Huevos</b> · Administración</footer>
+</main></body></html>
