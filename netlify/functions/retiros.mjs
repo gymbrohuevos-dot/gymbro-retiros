@@ -12,6 +12,7 @@ const text = (s, max) => typeof s === 'string' && s.length <= max;
 function valid(action, a) {
   if (!Array.isArray(a)) return false;
   switch (action) {
+    case 'adminSetAccess': return a.length===2 && text(a[0],64) && a[1] && typeof a[1]==='object' && !Array.isArray(a[1]) && text(a[1].current,100) && text(a[1].password,100) && text(a[1].target,80);
     case 'adminLogin': return a.length===1 && text(a[0],100) && a[0].length>0;
     case 'adminDashboard': return a.length===2 && text(a[0],64) && a[1] && typeof a[1]==='object' && !Array.isArray(a[1]);
     case 'adminCreate':
@@ -76,10 +77,12 @@ export default async function handler(request) {
       // La clave y el token real no se guardan en localStorage ni se devuelven al JS.
       return response({ok:true,data:admin?{token:'sesion',role:'ADMIN'}:{token:'sesion',branch:result.data.branch}}, 200, sessionCookie(result.data.token,COOKIE));
     }
-    return response({ok:true,data:result.data}, 200, logout ? clearCookie : undefined);
+    return response({ok:true,data:result.data}, 200, logout || (action==='adminSetAccess'&&result.data?.logout===true) ? clearCookie : undefined);
   } catch {
     // No reintentar entregas automáticamente: Google pudo confirmar antes de un corte.
-    return response({ok:false,error:action === 'adminCreate'||action === 'adminStock'
+    return response({ok:false,error:action === 'adminSetAccess'
+      ? 'No pudimos confirmar el cambio de clave. Probá ingresar con la nueva; si no funciona, usá la anterior. No se modifican pedidos ni stock.'
+      : action === 'adminCreate'||action === 'adminStock'
       ? 'No pudimos confirmar la respuesta. Usá Reintentar guardado para consultar o completar la misma solicitud sin duplicarla.'
       : action === 'entregar'
       ? 'No pudimos confirmar la respuesta. Volvé a buscar el pedido para verificar si quedó entregado antes de reintentar.'

@@ -36,7 +36,7 @@ $('refresh').onclick=()=>task(async()=>{await refresh();message('Datos actualiza
 $('previous').onclick=()=>task(async()=>{offset=Math.max(0,offset-50);await refresh();});
 $('next').onclick=()=>task(async()=>{offset+=50;await refresh();});
 $('orderForm').onsubmit=e=>{e.preventDefault();task(async()=>{
-  if(!pendingOrder){if(!$('phone').value.trim()&&!$('dni').value.trim())throw Error('Completá un celular o DNI.');savePending('order',{key:requestKey(),input:orderInput()});}
+  if(!pendingOrder){savePending('order',{key:requestKey(),input:orderInput()});}
   let r;try{r=await api('adminCreate',['sesion',pendingOrder.input,pendingOrder.key]);}catch(e){if(!e.uncertain&&!/Sesión vencida/.test(e.message))savePending('order',null);throw e;}
   savePending('order',null);$('orderForm').reset();$('created').hidden=false;$('created').replaceChildren(node('strong',r.reused?'Este pedido ya estaba guardado':'Pedido registrado'),node('p',r.order.name+' · '+r.order.quantity+' maples · '+names[r.order.branch]),node('p','Código de retiro: '+r.order.code,'admin-order-code'));const cp=node('button','Copiar código de retiro','secondary');cp.onclick=()=>copy(r.order.code);$('created').append(cp);message('Pedido confirmado. La reserva quedó registrada una sola vez.');await afterWrite();
 });};
@@ -48,5 +48,12 @@ $('stockForm').onsubmit=e=>{e.preventDefault();task(async()=>{
 $('backCancel').onclick=()=>$('cancelDialog').close();
 $('confirmCancel').onclick=()=>task(async()=>{const o=chosen;if(!o)return;$('cancelDialog').close();const r=await api('adminCancel',['sesion',o.id,o.version]);message(r.message);await afterWrite();});
 $('logout').onclick=()=>task(async()=>{try{await api('adminLogout',['sesion']);}finally{$('workspace').hidden=true;$('login').hidden=false;$('password').value='';$('orders').replaceChildren();$('stockCards').replaceChildren();$('created').hidden=true;stock=null;message('Sesión cerrada.');}});
+$('accessTarget').onchange=()=>{$('accessNote').textContent=$('accessTarget').value==='ADMIN'?'Al cambiar tu clave se cerrarán tus sesiones de administrador.':'Al cambiar la clave se cerrarán las sesiones de todos los comercios. Solo cambia la clave del local elegido; los demás vuelven a entrar con su clave vigente.';};
+$('accessForm').onsubmit=e=>{e.preventDefault();task(async()=>{
+  if($('newPassword').value!==$('confirmPassword').value)throw Error('Las dos claves nuevas no coinciden.');
+  const input={target:$('accessTarget').value,current:$('currentPassword').value,password:$('newPassword').value};
+  try{const r=await api('adminSetAccess',['sesion',input]);message(r.message);if(r.logout){$('workspace').hidden=true;$('login').hidden=false;$('password').value='';$('orders').replaceChildren();$('created').hidden=true;stock=null;}}
+  finally{$('currentPassword').value='';$('newPassword').value='';$('confirmPassword').value='';}
+});};
 // Recuperar sesión sin pedir la clave de nuevo mientras siga vigente.
 task(async()=>{try{await refresh();$('login').hidden=true;$('workspace').hidden=false;recover();}catch(e){if(!/Sesión vencida/.test(e.message))message(e.message,true);}});

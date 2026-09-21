@@ -8,7 +8,7 @@
 <section id="login" class="admin-login search-panel"><span class="eyebrow">Solo administrador</span><h1>Tu negocio, a mano.</h1><p class="muted">Cargá pedidos y controlá las tres sucursales.</p><form id="loginForm"><div class="field"><label for="password">Tu clave de administrador</label><input id="password" type="password" required autocomplete="current-password" maxlength="100"></div><button class="primary full" type="submit">Entrar al panel</button></form></section>
 <div id="workspace" hidden>
 <div class="workspace-head"><div><span class="eyebrow">Panel de administración</span><h1>Todo en un lugar.</h1></div><button id="logout" class="secondary" type="button">Cerrar sesión</button></div>
-<nav class="admin-nav" aria-label="Secciones"><button data-panel="ordersPanel" class="active" aria-current="page">Pedidos</button><button data-panel="newPanel">Nuevo pedido</button><button data-panel="stockPanel">Stock y reposiciones</button></nav>
+<nav class="admin-nav" aria-label="Secciones"><button data-panel="ordersPanel" class="active" aria-current="page">Pedidos</button><button data-panel="newPanel">Nuevo pedido</button><button data-panel="stockPanel">Stock y reposiciones</button><button data-panel="accessPanel">Claves de acceso</button></nav>
 <div id="stockError" class="message error" role="alert" hidden></div>
 <div id="stockCards" class="stock-grid" aria-label="Stock por sucursal"></div>
 
@@ -21,8 +21,8 @@
 <section id="newPanel" class="admin-panel" hidden><div class="section-title"><div><h2>Nuevo pedido</h2><p class="muted">Al guardar, reservamos los maples en la sucursal elegida.</p></div></div>
 <form id="orderForm" class="search-panel"><fieldset id="orderFields"><div class="form-grid">
 <div class="span-2"><label for="name">Nombre del cliente *</label><input id="name" required maxlength="120" autocomplete="name"></div>
-<div><label for="phone">Celular</label><input id="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="2231234567"><p class="help">Completá al menos celular o DNI.</p></div>
-<div><label for="dni">DNI</label><input id="dni" inputmode="numeric" pattern="[0-9]{7,8}" maxlength="8" placeholder="Sin puntos"></div>
+<div><label for="phone">Celular (opcional)</label><input id="phone" type="tel" maxlength="30" autocomplete="tel" placeholder="2231234567"><p class="help">Podés cargar por nombre y enviar el código de retiro.</p></div>
+<div><label for="dni">DNI (opcional)</label><input id="dni" inputmode="numeric" pattern="[0-9]{7,8}" maxlength="8" placeholder="Sin puntos"></div>
 <div><label for="quantity">Cantidad de maples *</label><input id="quantity" type="number" required min="1" max="1000" step="1" inputmode="numeric" value="1"></div>
 <div><label for="branch">Sucursal de retiro *</label><select id="branch" required><option value="COLON">Colón</option><option value="ESTRADA">Estrada</option><option value="MARCONI">Marconi</option></select><p id="available" class="help"></p></div>
 <div class="span-2"><label for="extras">Otros productos</label><input id="extras" maxlength="500" placeholder="Ej.: 1 creatina de 250 g"><p class="help">Se muestran al comercio. Esta etapa controla stock de maples; los pedidos con extras no se reasignan automáticamente.</p></div>
@@ -40,6 +40,13 @@
 <div class="span-2"><label for="stockNotes">Observaciones</label><textarea id="stockNotes" maxlength="500" rows="2" placeholder="Ej.: reposición del lunes"></textarea></div>
 </div></fieldset><p id="stockPending" class="notice" hidden>Hay una reposición pendiente de confirmar. Reintentá para evitar cargarla dos veces.</p><button id="saveStock" class="primary full" type="submit">Registrar ingreso de stock</button></form>
 </section>
+<section id="accessPanel" class="admin-panel" hidden><div class="section-title"><div><h2>Claves de acceso</h2><p class="muted">Elegí claves que puedas recordar. La clave de conexión con Netlify se conserva.</p></div></div>
+<form id="accessForm" class="search-panel"><div class="form-grid">
+<div class="span-2"><label for="accessTarget">¿Qué acceso querés cambiar?</label><select id="accessTarget"><option value="ADMIN">Mi acceso de administrador</option value="COLON">Comercio Colón</option><option value="ESTRADA">Comercio Estrada</option><option value="MARCONI">Comercio Marconi</option></select></div>
+<div class="span-2"><label for="currentPassword">Tu clave actual de administrador</label><input id="currentPassword" type="password" autocomplete="current-password" required maxlength="100"><p class="help">Para cambiar la clave de un local, también confirmás con tu clave de administrador.</p></div>
+<div><label for="newPassword">Nueva clave</label><input id="newPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="100"><p class="help">Al menos 8 caracteres. Podés usar una frase fácil de recordar.</p></div>
+<div><label for="confirmPassword">Repetí la nueva clave</label><input id="confirmPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="100"></div>
+</div><p id="accessNote" class="notice">Al cambiar tu clave se cerrarán tus sesiones de administrador.</p><button class="primary full" type="submit">Guardar nueva clave</button></form></section>
 </div>
 <dialog id="cancelDialog" aria-labelledby="cancelTitle"><h2 id="cancelTitle">¿Cancelar el pedido?</h2><p id="cancelText"></p><p class="help">Se liberará la reserva. El reintegro del pago se gestiona por separado.</p><div class="dialog-actions"><button id="confirmCancel" class="primary">Sí, cancelar pedido</button><button id="backCancel" class="secondary">Volver</button></div></dialog>
 <footer class="footer"><b>GymBro Huevos</b> · Administración</footer>
