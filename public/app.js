@@ -1,7 +1,8 @@
 
 'use strict';
 let token='',branch='',chosen=null,busy=false,lastFocus=null;
-const el=id=>document.getElementById(id),labelBranch=b=>({COLON:'Colón',ESTRADA:'Estrada',MARCONI:'Marconi'}[b]||b);
+const branchLabels={COLON:'Colón',ESTRADA:'Estrada',MARCONI:'Marconi'};
+const el=id=>document.getElementById(id),labelBranch=b=>branchLabels[b]||b;
 function icon(kind){const paths={check:'<path d="m5 12 4 4L19 6"/>',pin:'<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/>',box:'<path d="m3 7 9-4 9 4v11l-9 4-9-4Z M3 7l9 4 9-4 M12 11v11 M7.5 5l9 4"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};const t=document.createElement('template');t.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths[kind]+'</svg>';return t.content.firstChild;}
 function node(tag,text,cls){const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n;}
 function msg(s,error=false){el('message').replaceChildren();el('message').textContent=s;el('message').className='message'+(error?' error':'');}
@@ -37,3 +38,9 @@ el('pending').onclick=()=>task(async()=>{el('results').replaceChildren();el('res
 el('no').onclick=()=>el('confirm').close();el('confirm').addEventListener('close',()=>{if(lastFocus&&lastFocus.isConnected)lastFocus.focus();});
 el('yes').onclick=()=>task(async()=>{const o=chosen;if(!o)return;el('confirm').close();el('results').replaceChildren();el('resultsHeading').hidden=true;try{const r=await call('entregar',[token,o.id,o.version,o.foreign]);if(/^Entrega registrada:/.test(r.message))success(r.message);else msg(r.message);empty('Listo para el próximo retiro','Buscá otro pedido para continuar.');el('query').value='';}catch(e){if(/Sesión vencida/.test(e.message||''))reset();msg((e.message||'No se pudo confirmar.')+'\nVolvé a buscar el pedido para verificar su estado antes de reintentar.',true);}chosen=null;});
 el('logout').onclick=()=>task(async()=>{try{await call('salir',[token]);}finally{reset();msg('Sesión cerrada.');}});
+
+task(async()=>{
+ const data=await call('branches',[]);
+ const select=el('branch');select.replaceChildren();
+ for(const b of data.branches){branchLabels[b.id]=b.name;select.append(new Option(b.name,b.id));}
+});

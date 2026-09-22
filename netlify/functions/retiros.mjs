@@ -12,6 +12,8 @@ const text = (s, max) => typeof s === 'string' && s.length <= max;
 function valid(action, a) {
   if (!Array.isArray(a)) return false;
   switch (action) {
+    case 'branches': return a.length===0;
+    case 'adminAddBranch': return a.length===3 && text(a[0],64) && a[1] && typeof a[1]==='object' && text(a[1].name,60) && text(a[1].password,100) && text(a[2],40) && /^req-[a-f0-9-]{32,36}$/.test(a[2]);
     case 'adminSetAccess': return a.length===2 && text(a[0],64) && a[1] && typeof a[1]==='object' && !Array.isArray(a[1]) && text(a[1].current,100) && text(a[1].password,100) && text(a[1].target,80);
     case 'adminLogin': return a.length===1 && text(a[0],100) && a[0].length>0;
     case 'adminDashboard': return a.length===2 && text(a[0],64) && a[1] && typeof a[1]==='object' && !Array.isArray(a[1]);
@@ -19,7 +21,7 @@ function valid(action, a) {
     case 'adminStock': return a.length===3 && text(a[0],64) && a[1] && typeof a[1]==='object' && !Array.isArray(a[1]) && text(a[2],40) && /^req-[a-f0-9-]{32,36}$/.test(a[2]);
     case 'adminCancel': return a.length===3 && text(a[0],64) && text(a[1],200) && text(a[2],200);
     case 'adminLogout': return a.length===1 && text(a[0],64);
-    case 'ingresar': return a.length === 2 && ['COLON','ESTRADA','MARCONI'].includes(a[0]) && text(a[1], 100) && a[1].length > 0;
+    case 'ingresar': return a.length === 2 && text(a[0],80) && /^[A-Z][A-Z0-9_]*$/.test(a[0]) && text(a[1], 100) && a[1].length > 0;
     case 'buscar': return a.length === 3 && text(a[0], 64) && text(a[1], 80) && typeof a[2] === 'boolean';
     case 'entregar': return a.length === 4 && text(a[0], 64) && text(a[1], 200) && a[1].length > 0 && text(a[2], 200) && a[2].length > 0 && typeof a[3] === 'boolean';
     case 'salir': return a.length === 1 && text(a[0], 64);
@@ -45,7 +47,7 @@ export default async function handler(request) {
   const COOKIE=admin?'__Host-gymbro-admin':'__Host-gymbro', clearCookie=clearSession(COOKIE);
   const cookie = (request.headers.get('cookie') || '').split(';').map(s => s.trim()).find(s => s.startsWith(COOKIE + '='));
   const token = cookie ? cookie.slice(COOKIE.length + 1) : '';
-  if (!login) {
+  if (!login && action!=='branches') {
     if (!/^[a-f0-9]{64}$/.test(token)) return response({ok:false,error:'Sesión vencida. Volvé a ingresar.'}, 401, clearCookie);
     args[0] = token; // Nunca confiar en el token enviado en el cuerpo por el navegador.
   }
@@ -73,7 +75,7 @@ export default async function handler(request) {
       return response({ok:false,error:message.slice(0, 1200)}, expired ? 401 : result.uncertain===true ? 502 : 400, expired || logout ? clearCookie : undefined);
     }
     if (login) {
-      if (!/^[a-f0-9]{64}$/.test(result.data?.token || '') || (admin ? result.data?.role!=='ADMIN' : !['COLON','ESTRADA','MARCONI'].includes(result.data?.branch))) throw Error('login');
+      if (!/^[a-f0-9]{64}$/.test(result.data?.token || '') || (admin ? result.data?.role!=='ADMIN' : !/^[A-Z][A-Z0-9_]{0,79}$/.test(result.data?.branch||''))) throw Error('login');
       // La clave y el token real no se guardan en localStorage ni se devuelven al JS.
       return response({ok:true,data:admin?{token:'sesion',role:'ADMIN'}:{token:'sesion',branch:result.data.branch}}, 200, sessionCookie(result.data.token,COOKIE));
     }
@@ -82,7 +84,7 @@ export default async function handler(request) {
     // No reintentar entregas automáticamente: Google pudo confirmar antes de un corte.
     return response({ok:false,error:action === 'adminSetAccess'
       ? 'No pudimos confirmar el cambio de clave. Probá ingresar con la nueva; si no funciona, usá la anterior. No se modifican pedidos ni stock.'
-      : action === 'adminCreate'||action === 'adminStock'
+      : action === 'adminCreate'||action === 'adminStock'||action === 'adminAddBranch'
       ? 'No pudimos confirmar la respuesta. Usá Reintentar guardado para consultar o completar la misma solicitud sin duplicarla.'
       : action === 'entregar'
       ? 'No pudimos confirmar la respuesta. Volvé a buscar el pedido para verificar si quedó entregado antes de reintentar.'

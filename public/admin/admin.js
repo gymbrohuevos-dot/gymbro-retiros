@@ -1,6 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id), names={COLON:'Colón',ESTRADA:'Estrada',MARCONI:'Marconi'};
 let busy=false,offset=0,stock=null,chosen=null,pendingOrder=null,pendingStock=null;
+let branchCatalog=[],branchRequest=null;
 function node(tag,text,cls){const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n;}
 function message(text,error=false){$('message').textContent=text;$('message').className='message'+(error?' error':'');}
 function panel(id){document.querySelectorAll('.admin-panel').forEach(n=>n.hidden=n.id!==id);document.querySelectorAll('[data-panel]').forEach(b=>{const active=b.dataset.panel===id;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});}
@@ -17,12 +18,12 @@ async function task(fn){if(busy)return;busy=true;const buttons=[...document.quer
 let hasMore=false;
 function updatePagination(){$('previous').disabled=busy||offset===0;$('next').disabled=busy||!hasMore;}
 function showAvailable(){$('available').textContent=stock?stock[$('branch').value].free+' maples libres ahora. Se vuelven a verificar al guardar.':'Stock sin verificar. Actualizá el panel.';}
-function renderStock(data){stock=data.stock;$('stockError').hidden=!data.stockError;$('stockError').textContent=data.stockError?data.stockError+' Podés consultar los pedidos, pero corregí el stock antes de crear o entregar.':'';$('stockCards').replaceChildren();for(const b of ['COLON','ESTRADA','MARCONI']){const card=node('section','','stock-card'),quantity=node('div','','stock-number');quantity.append(node('span',stock?String(stock[b].free):'—'),node('small','maples libres'));card.append(node('h2',names[b]),quantity,node('p',stock?stock[b].physical+' en el local · '+stock[b].reserved+' reservados':'Revisión de stock pendiente','stock-detail'));$('stockCards').append(card);}showAvailable();}
+function renderStock(data){stock=data.stock;$('stockError').hidden=!data.stockError;$('stockError').textContent=data.stockError?data.stockError+' Podés consultar los pedidos, pero corregí el stock antes de crear o entregar.':'';$('stockCards').replaceChildren();for(const {id:b} of branchCatalog){const card=node('section','','stock-card'),quantity=node('div','','stock-number');quantity.append(node('span',stock?String(stock[b].free):'—'),node('small','maples libres'));card.append(node('h2',names[b]),quantity,node('p',stock?stock[b].physical+' en el local · '+stock[b].reserved+' reservados':'Revisión de stock pendiente','stock-detail'));$('stockCards').append(card);}showAvailable();}
 async function copy(text){try{await navigator.clipboard.writeText(text);message('Código copiado.');}catch{message('Copiá este código: '+text);}}
 function renderOrders(data){$('orders').replaceChildren();$('listCount').textContent=data.total?`${data.offset+1}–${Math.min(data.offset+50,data.total)} de ${data.total} pedidos · ${data.pending} pendientes en total`:'No hay pedidos con estos filtros.';hasMore=data.more;
-  for(const o of data.orders){const card=node('article','','admin-order'),top=node('div','','admin-order-top'),who=node('div','');who.append(node('h3',o.name),node('small',o.created+' · '+o.channel));top.append(who,node('span',o.state,'badge'+(o.state==='ENTREGADO'?' delivered':o.state==='CANCELADO'?' cancelled':'')));const details=node('div','','admin-order-details');details.append(node('strong',o.quantity+' maples · '+names[o.branch]),node('span',o.phone?'Cel. '+o.phone:'DNI '+o.dni),node('span',o.code,'admin-order-code'));card.append(top,details);if(o.extras)card.append(node('p','Otros productos: '+o.extras,'help'));if(o.notes)card.append(node('p','Observaciones: '+o.notes,'help'));if(o.delivered)card.append(node('p','Entregado: '+o.delivered,'help'));const actions=node('div','','admin-order-actions');const cp=node('button','Copiar código','secondary');cp.onclick=()=>copy(o.code);actions.append(cp);if(o.state==='PENDIENTE'){const cancel=node('button','Cancelar pedido','secondary');cancel.onclick=()=>{chosen=o;$('cancelText').textContent=o.name+' · '+o.quantity+' maples en '+names[o.branch]+'.';$('cancelDialog').showModal();$('backCancel').focus();};actions.append(cancel);}card.append(actions);$('orders').append(card);}
+  for(const o of data.orders){const card=node('article','','admin-order'),top=node('div','','admin-order-top'),who=node('div','');who.append(node('h3',o.name),node('small',o.created+' · '+o.channel));top.append(who,node('span',o.state,'badge'+(o.state==='ENTREGADO'?' delivered':o.state==='CANCELADO'?' cancelled':'')));const details=node('div','','admin-order-details');details.append(node('strong',o.quantity+' maples · '+names[o.branch]),node('span',o.phone?'Cel. '+o.phone:o.dni?'DNI '+o.dni:'Retiro por código'),node('span',o.code,'admin-order-code'));card.append(top,details);if(o.extras)card.append(node('p','Otros productos: '+o.extras,'help'));if(o.notes)card.append(node('p','Observaciones: '+o.notes,'help'));if(o.delivered)card.append(node('p','Entregado: '+o.delivered,'help'));const actions=node('div','','admin-order-actions');const cp=node('button','Copiar código','secondary');cp.onclick=()=>copy(o.code);actions.append(cp);if(o.state==='PENDIENTE'){const cancel=node('button','Cancelar pedido','secondary');cancel.onclick=()=>{chosen=o;$('cancelText').textContent=o.name+' · '+o.quantity+' maples en '+names[o.branch]+'.';$('cancelDialog').showModal();$('backCancel').focus();};actions.append(cancel);}card.append(actions);$('orders').append(card);}
 }
-async function refresh(){const data=await api('adminDashboard',['sesion',{query:$('filterQuery').value,branch:$('filterBranch').value,state:$('filterState').value,offset}]);renderStock(data);renderOrders(data);return data;}
+async function refresh(){const data=await api('adminDashboard',['sesion',{query:$('filterQuery').value,branch:$('filterBranch').value,state:$('filterState').value,offset}]);renderBranches(data.branches);renderStock(data);renderOrders(data);return data;}
 function savePending(kind,value){const name='gymbro-admin-pending-'+kind;if(value)sessionStorage.setItem(name,JSON.stringify(value));else sessionStorage.removeItem(name);if(kind==='order')pendingOrder=value;else pendingStock=value;pendingUI();}
 function recover(){for(const kind of ['order','stock']){let raw;try{raw=JSON.parse(sessionStorage.getItem('gymbro-admin-pending-'+kind)||'null');}catch{raw=null;}if(!raw||typeof raw.key!=='string'||!raw.input)continue;if(kind==='order'){pendingOrder=raw;for(const k of ['name','phone','dni','quantity','branch','extras','notes'])$(k).value=raw.input[k]??'';$('paid').checked=raw.input.paid===true;}else{pendingStock=raw;for(const [id,k] of [['stockBranch','branch'],['stockQuantity','quantity'],['stockType','type'],['stockNotes','notes']])$(id).value=raw.input[k]??'';}}pendingUI();}
 function orderInput(){return {name:$('name').value,phone:$('phone').value,dni:$('dni').value,quantity:Number($('quantity').value),branch:$('branch').value,extras:$('extras').value,notes:$('notes').value,paid:$('paid').checked};}
@@ -57,3 +58,28 @@ $('accessForm').onsubmit=e=>{e.preventDefault();task(async()=>{
 });};
 // Recuperar sesión sin pedir la clave de nuevo mientras siga vigente.
 task(async()=>{try{await refresh();$('login').hidden=true;$('workspace').hidden=false;recover();}catch(e){if(!/Sesión vencida/.test(e.message))message(e.message,true);}});
+
+function renderBranches(list){
+  if(!Array.isArray(list)||!list.length)throw Error('Actualizá los archivos de Google para cargar las sucursales.');
+  branchCatalog=list;for(const b of list)names[b.id]=b.name;
+  for(const id of ['branch','stockBranch','filterBranch','accessTarget']){
+    const select=$(id),previous=select.value;select.replaceChildren();
+    if(id==='filterBranch')select.append(new Option('Todas',''));
+    if(id==='accessTarget')select.append(new Option('Mi acceso de administrador','ADMIN'));
+    for(const b of list)select.append(new Option((id==='accessTarget'?'Comercio ':'')+b.name,b.id));
+    if([...select.options].some(o=>o.value===previous))select.value=previous;
+  }
+  $('branchList').replaceChildren(...list.map(b=>node('p',b.name,'stock-detail')));
+}
+$('addBranchForm').onsubmit=e=>{e.preventDefault();task(async()=>{
+  if(!branchRequest){
+    if($('branchPassword').value!==$('branchPasswordConfirm').value)throw Error('Las claves no coinciden.');
+    branchRequest={key:requestKey(),input:{name:$('branchName').value,password:$('branchPassword').value}};
+  }
+  $('branchFields').disabled=true;
+  try{
+    const r=await api('adminAddBranch',['sesion',branchRequest.input,branchRequest.key]);
+    branchRequest=null;$('addBranchForm').reset();renderBranches(r.branches);message(r.message);await afterWrite();
+  }catch(e){if(!e.uncertain&&!/Sesión vencida/.test(e.message))branchRequest=null;throw e;}
+  finally{$('branchFields').disabled=!!branchRequest;$('saveBranch').textContent=branchRequest?'Reintentar guardado':'Agregar sucursal';}
+});};
