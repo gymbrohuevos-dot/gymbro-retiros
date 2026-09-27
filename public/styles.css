@@ -33,3 +33,9 @@ button:focus-visible,input:focus,select:focus{outline-color:#ffe45b}
 .wrap{padding-bottom:max(28px,env(safe-area-inset-bottom))}
 @media(max-width:680px){.login-brand{border-right:0;border-bottom:1px solid var(--line)}.workspace-head{align-items:flex-start}.workspace-head h1{font-size:27px}.logout{flex-shrink:0;max-width:85px}.results-heading{gap:12px;align-items:flex-start}.results-heading span{flex-shrink:0}.primary,.secondary{min-height:54px}.order-head{gap:8px}.search-footer .link-button{text-align:left}.wrap{padding-bottom:max(24px,env(safe-area-inset-bottom))}}
 @media(max-width:380px){.wrap{padding-left:12px;padding-right:12px}.login-body,.login-brand{padding:20px}.login-brand{grid-template-columns:1fr 64px}.hero-logo{width:64px;height:64px}.login-brand h1{font-size:25px}.search-panel{padding:16px}.order-body{grid-template-columns:minmax(0,1fr) 70px;gap:10px}.quantity{min-width:0;padding:12px 6px}.quantity b{font-size:34px}.order h2{font-size:21px}.brand-title{font-size:16px}}
+/* Acceso individual, compatible con el ancho de un teléfono. */
+.legacy-login{margin:8px 0 16px;color:var(--muted)}
+.legacy-login summary{cursor:pointer;min-height:44px;display:flex;align-items:center;text-decoration:underline;text-underline-offset:4px}
+.legacy-login .field{margin-top:12px}
+.account-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#changeDialog .field{margin:12px 0}
