@@ -13,6 +13,11 @@ function valid(action, a) {
   if (!Array.isArray(a)) return false;
   switch (action) {
     case 'branches': return a.length===0;
+    case 'userLogin': return a.length===2 && text(a[0],40) && text(a[1],100) && a[1].length>0;
+    case 'userChangePassword': return a.length===3 && text(a[0],64) && text(a[1],100) && text(a[2],100);
+    case 'adminAccounts': return a.length===1 && text(a[0],64);
+    case 'adminSaveAccount': return a.length===2 && text(a[0],64) && a[1] && typeof a[1]==='object' && !Array.isArray(a[1]) && text(a[1].username,40) && text(a[1].branch,80) && text(a[1].password,100);
+    case 'adminAccountState': return a.length===3 && text(a[0],64) && text(a[1],40) && typeof a[2]==='boolean';
     case 'adminAddBranch': return a.length===3 && text(a[0],64) && a[1] && typeof a[1]==='object' && text(a[1].name,60) && text(a[1].password,100) && text(a[2],40) && /^req-[a-f0-9-]{32,36}$/.test(a[2]);
     case 'adminSetAccess': return a.length===2 && text(a[0],64) && a[1] && typeof a[1]==='object' && !Array.isArray(a[1]) && text(a[1].current,100) && text(a[1].password,100) && text(a[1].target,80);
     case 'adminLogin': return a.length===1 && text(a[0],100) && a[0].length>0;
@@ -43,7 +48,7 @@ export default async function handler(request) {
     if (!valid(action, args)) return response({ok:false,error:'Solicitud inválida.'}, 400);
   } catch { return response({ok:false,error:'Solicitud inválida.'}, 400); }
 
-  const admin=action.startsWith('admin'), login=action==='ingresar'||action==='adminLogin', logout=action==='salir'||action==='adminLogout';
+  const admin=action.startsWith('admin'), login=action==='ingresar'||action==='userLogin'||action==='adminLogin', logout=action==='salir'||action==='adminLogout';
   const COOKIE=admin?'__Host-gymbro-admin':'__Host-gymbro', clearCookie=clearSession(COOKIE);
   const cookie = (request.headers.get('cookie') || '').split(';').map(s => s.trim()).find(s => s.startsWith(COOKIE + '='));
   const token = cookie ? cookie.slice(COOKIE.length + 1) : '';
@@ -76,10 +81,12 @@ export default async function handler(request) {
     }
     if (login) {
       if (!/^[a-f0-9]{64}$/.test(result.data?.token || '') || (admin ? result.data?.role!=='ADMIN' : !/^[A-Z][A-Z0-9_]{0,79}$/.test(result.data?.branch||''))) throw Error('login');
+      if (action==='userLogin' && !/^[a-z0-9][a-z0-9._-]{2,39}$/.test(result.data?.username||'')) throw Error('login');
       // La clave y el token real no se guardan en localStorage ni se devuelven al JS.
-      return response({ok:true,data:admin?{token:'sesion',role:'ADMIN'}:{token:'sesion',branch:result.data.branch}}, 200, sessionCookie(result.data.token,COOKIE));
+      return response({ok:true,data:admin?{token:'sesion',role:'ADMIN'}:{token:'sesion',branch:result.data.branch,
+        ...(action==='userLogin'?{username:result.data.username}:{})}}, 200, sessionCookie(result.data.token,COOKIE));
     }
-    return response({ok:true,data:result.data}, 200, logout || (action==='adminSetAccess'&&result.data?.logout===true) ? clearCookie : undefined);
+    return response({ok:true,data:result.data}, 200, logout || ((action==='adminSetAccess'||action==='userChangePassword')&&result.data?.logout===true) ? clearCookie : undefined);
   } catch {
     // No reintentar entregas automáticamente: Google pudo confirmar antes de un corte.
     return response({ok:false,error:action === 'adminSetAccess'
