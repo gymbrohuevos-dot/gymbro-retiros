@@ -13,6 +13,8 @@ function valid(action, a) {
   if (!Array.isArray(a)) return false;
   switch (action) {
     case 'branches': return a.length===0;
+    case 'commerceHistory': return a.length===2 && text(a[0],64) && a[1] && ['delivered','stock'].includes(a[1].kind) && Number.isInteger(a[1].offset) && a[1].offset>=0 && a[1].offset<=10000;
+    case 'commerceReceive': return a.length===3 && text(a[0],64) && a[1] && text(a[1].id,200) && text(a[1].version,200) && Number.isInteger(a[1].received) && a[1].received>=0 && a[1].received<=10000 && text(a[1].notes,500) && text(a[2],40) && /^req-[a-f0-9-]{32,36}$/.test(a[2]);
     case 'userLogin': return a.length===2 && text(a[0],40) && text(a[1],100) && a[1].length>0;
     case 'userChangePassword': return a.length===3 && text(a[0],64) && text(a[1],100) && text(a[2],100);
     case 'adminAccounts': return a.length===1 && text(a[0],64);
@@ -77,7 +79,7 @@ export default async function handler(request) {
       const message = typeof result.error === 'string' ? result.error : 'No se pudo completar la operación.';
       if (/Conexión no autorizada|Solicitud vencida/.test(message)) return response({ok:false,error:'La conexión con Google necesita revisión. Contactá a GymBro.'}, 502);
       const expired = /Sesión vencida/.test(message);
-      return response({ok:false,error:message.slice(0, 1200)}, expired ? 401 : result.uncertain===true ? 502 : 400, expired || logout ? clearCookie : undefined);
+      return response({ok:false,error:message.slice(0, 1200),uncertain:result.uncertain===true}, expired ? 401 : result.uncertain===true ? 502 : 400, expired || logout ? clearCookie : undefined);
     }
     if (login) {
       if (!/^[a-f0-9]{64}$/.test(result.data?.token || '') || (admin ? result.data?.role!=='ADMIN' : !/^[A-Z][A-Z0-9_]{0,79}$/.test(result.data?.branch||''))) throw Error('login');
@@ -93,8 +95,10 @@ export default async function handler(request) {
       ? 'No pudimos confirmar el cambio de clave. Probá ingresar con la nueva; si no funciona, usá la anterior. No se modifican pedidos ni stock.'
       : action === 'adminCreate'||action === 'adminStock'||action === 'adminAddBranch'
       ? 'No pudimos confirmar la respuesta. Usá Reintentar guardado para consultar o completar la misma solicitud sin duplicarla.'
+      : action === 'commerceReceive'
+      ? 'No pudimos confirmar la recepción. Reintentá la misma validación: no se duplicará ni se sumará stock otra vez.'
       : action === 'entregar'
       ? 'No pudimos confirmar la respuesta. Volvé a buscar el pedido para verificar si quedó entregado antes de reintentar.'
-      : 'No se pudo conectar con Google. Reintentá en unos segundos; si persiste, avisá a GymBro.'}, 502, logout ? clearCookie : undefined);
+      : 'No se pudo conectar con Google. Reintentá en unos segundos; si persiste, avisá a GymBro.',uncertain:action==='commerceReceive'}, 502, logout ? clearCookie : undefined);
   }
 }

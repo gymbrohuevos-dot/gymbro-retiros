@@ -1,6 +1,7 @@
 
 'use strict';
 let token='',branch='',username='',chosen=null,busy=false,lastFocus=null;
+let historyKind='',historyOffset=0,receiptDraft=null,receiptRetry=null;
 const branchLabels={COLON:'Colón',ESTRADA:'Estrada',MARCONI:'Marconi'};
 const el=id=>document.getElementById(id),labelBranch=b=>branchLabels[b]||b;
 function icon(kind){const paths={check:'<path d="m5 12 4 4L19 6"/>',pin:'<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/>',box:'<path d="m3 7 9-4 9 4v11l-9 4-9-4Z M3 7l9 4 9-4 M12 11v11 M7.5 5l9 4"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};const t=document.createElement('template');t.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths[kind]+'</svg>';return t.content.firstChild;}
@@ -16,16 +17,17 @@ async function call(name,args){
       body:JSON.stringify({action:name,args}),signal:AbortSignal.timeout(35000)
     });
   } catch {
+    if(name==='commerceReceive')throw Object.assign(Error('Se cortó la conexión. Reintentá la misma validación para comprobar si se guardó.'),{uncertain:true});
     throw Error(name==='entregar'
       ? 'Se cortó la conexión. Volvé a buscar el pedido para verificar si quedó entregado antes de reintentar.'
       : 'No pudimos conectar. Revisá tu conexión a internet y reintentá.');
   }
   let result;
-  try {result=await response.json();} catch {throw Error('No se pudo leer la respuesta del servidor. Contactá a GymBro.');}
-  if(!response.ok||!result.ok)throw Error(result.error||'No se pudo completar la operación.');
+  try {result=await response.json();} catch {throw Object.assign(Error('No se pudo leer la respuesta del servidor. Reintentá la misma operación.'),{uncertain:name==='commerceReceive'});}
+  if(!response.ok||!result.ok)throw Object.assign(Error(result.error||'No se pudo completar la operación.'),{uncertain:result.uncertain===true||(name==='commerceReceive'&&response.status>=500)});
   return result.data;
 }
-function reset(){token='';branch='';username='';chosen=null;el('app').hidden=true;el('login').hidden=false;el('changePassword').hidden=true;el('topLabel').textContent='Mar del Plata';el('password').value='';el('password').type='password';el('reveal').textContent='Mostrar';el('reveal').setAttribute('aria-pressed','false');el('query').value='';el('results').replaceChildren();el('resultsHeading').hidden=true;}
+function reset(){clearHistory();receiptDraft=null;receiptRetry=null;el('receiptDialog').close();token='';branch='';username='';chosen=null;el('app').hidden=true;el('login').hidden=false;el('changePassword').hidden=true;el('topLabel').textContent='Mar del Plata';el('password').value='';el('password').type='password';el('reveal').textContent='Mostrar';el('reveal').setAttribute('aria-pressed','false');el('query').value='';el('results').replaceChildren();el('resultsHeading').hidden=true;}
 async function task(fn){if(busy)return;loading(true);try{await fn();}catch(e){if(/Sesión vencida/.test(e.message||''))reset();msg(e.message||'No se pudo completar la operación. Volvé a buscar el pedido antes de reintentar.',true);}finally{loading(false);}}
 function empty(title,description){const box=node('div','','empty');box.append(icon('box'),node('strong',title),node('p',description));el('results').replaceChildren(box);}
 function detail(text,kind){const p=node('p','','detail');p.append(icon(kind),node('span',text));return p;}
@@ -37,8 +39,8 @@ el('loginForm').onsubmit=e=>{e.preventDefault();task(async()=>{const legacy=el('
 el('changePassword').onclick=()=>{el('changeDialog').showModal();el('currentPassword').focus();};
 el('cancelChange').onclick=()=>el('changeDialog').close();
 el('changeForm').onsubmit=e=>{e.preventDefault();task(async()=>{try{const r=await call('userChangePassword',[token,el('currentPassword').value,el('nextPassword').value]);el('changeDialog').close();reset();msg(r.message);}finally{el('changeForm').reset();}});};
-el('searchForm').onsubmit=e=>{e.preventDefault();task(async()=>{el('results').replaceChildren();el('resultsHeading').hidden=true;msg('Buscando pedido…');render(await call('buscar',[token,el('query').value,false]));msg('');});};
-el('pending').onclick=()=>task(async()=>{el('results').replaceChildren();el('resultsHeading').hidden=true;msg('Cargando pendientes…');render(await call('buscar',[token,'',true]),true);msg('');});
+el('searchForm').onsubmit=e=>{e.preventDefault();clearHistory();task(async()=>{el('results').replaceChildren();el('resultsHeading').hidden=true;msg('Buscando pedido…');render(await call('buscar',[token,el('query').value,false]));msg('');});};
+
 el('no').onclick=()=>el('confirm').close();el('confirm').addEventListener('close',()=>{if(lastFocus&&lastFocus.isConnected)lastFocus.focus();});
 el('yes').onclick=()=>task(async()=>{const o=chosen;if(!o)return;el('confirm').close();el('results').replaceChildren();el('resultsHeading').hidden=true;try{const r=await call('entregar',[token,o.id,o.version,o.foreign]);if(/^Entrega registrada:/.test(r.message))success(r.message);else msg(r.message);empty('Listo para el próximo retiro','Buscá otro pedido para continuar.');el('query').value='';}catch(e){if(/Sesión vencida/.test(e.message||''))reset();msg((e.message||'No se pudo confirmar.')+'\nVolvé a buscar el pedido para verificar su estado antes de reintentar.',true);}chosen=null;});
 el('logout').onclick=()=>task(async()=>{try{await call('salir',[token]);}finally{reset();msg('Sesión cerrada.');}});
@@ -48,3 +50,62 @@ task(async()=>{
  const select=el('branch');select.replaceChildren();
  for(const b of data.branches){branchLabels[b.id]=b.name;select.append(new Option(b.name,b.id));}
 });
+
+function clearHistory(){historyKind='';historyOffset=0;el('historyPager').hidden=true;}
+function renderStock(data){
+  el('results').replaceChildren();el('resultsHeading').hidden=false;
+  el('resultsTitle').textContent='Reposiciones en '+labelBranch(branch);
+  el('resultCount').textContent=data.total+' ingresos';
+  if(!data.items.length){empty('Todavía no hay reposiciones','Acá vas a ver el stock que GymBro registre para tu sucursal.');return;}
+  for(const m of data.items){
+    const card=node('article','','order stock-entry'),head=node('div','','order-head'),r=m.receipt;
+    head.append(node('span',m.type==='STOCK_INICIAL'?'Stock inicial':'Reposición de stock','order-id'),node('span',r?(r.state==='CONFIRMADO'?'Recepción validada':'Diferencia informada'):m.changed?'Volver a validar':'Sin validar','badge'+(r?(r.state==='CONFIRMADO'?' delivered':' cancelled'):'')));
+    const body=node('div','','order-body'),info=node('div','');
+    info.append(node('h2',m.quantity+' '+(m.quantity===1?'maple':'maples')),detail('Registrado: '+m.created,'clock'));
+    if(m.notes)info.append(node('p',m.notes,'extras'));
+    if(r){info.append(detail('Recibidos: '+r.received+' maples','box'),detail(r.username+' · '+r.at,'check'));if(r.notes)info.append(node('p',r.notes,'extras'));if(r.state==='DIFERENCIA')info.append(node('p','GymBro tiene esta diferencia disponible para revisar. El stock no se ajustó automáticamente.','small-note'));}
+    if(m.changed)info.append(node('p','GymBro modificó esta reposición después de la validación anterior. Revisá la cantidad antes de confirmar otra vez.','small-note'));
+    body.append(info);card.append(head,body);
+    if(!r){const foot=node('div','','order-foot'),button=node('button','Validar ingreso','primary');button.onclick=()=>openReceipt(m,button);foot.append(button);card.append(foot);}
+    el('results').append(card);
+  }
+}
+async function loadHistory(kind,offset=0){
+  const data=await call('commerceHistory',[token,{kind,offset}]);
+  historyKind=kind;historyOffset=data.offset;
+  if(kind==='stock')renderStock(data);else{
+    render({...data,more:false});el('resultsTitle').textContent='Entregas en '+labelBranch(branch);el('resultCount').textContent=data.total+' pedidos entregados';
+    if(!data.orders.length)empty('Todavía no hay entregas','Acá vas a ver los pedidos que ya se retiraron en esta sucursal.');
+  }
+  el('historyPager').hidden=!data.total;el('historyPrev').hidden=offset===0;el('historyNext').hidden=!data.more;
+  el('historyPage').textContent=data.total?Math.min(offset+1,data.total)+'–'+Math.min(offset+50,data.total)+' de '+data.total:'';
+}
+el('delivered').onclick=()=>task(async()=>{msg('Cargando entregas…');await loadHistory('delivered');msg('');});
+el('stockHistory').onclick=()=>task(async()=>{msg('Cargando reposiciones…');await loadHistory('stock');msg('');});
+el('historyPrev').onclick=()=>task(()=>loadHistory(historyKind,Math.max(0,historyOffset-50)));
+el('historyNext').onclick=()=>task(()=>loadHistory(historyKind,historyOffset+50));
+function openReceipt(move,button){
+  receiptDraft={move,key:'req-'+crypto.randomUUID()};receiptRetry=null;lastFocus=button;
+  el('receiptDescription').textContent=labelBranch(branch)+' · '+move.created+'\nGymBro registró '+move.quantity+' maples.';
+  el('receiptForm').reset();el('receivedQuantity').value=String(move.quantity);el('receiptFields').disabled=false;
+  el('saveReceipt').textContent='Confirmar recepción';el('receiptError').hidden=true;
+  el('receiptDialog').showModal();el('receivedQuantity').focus();
+}
+el('receiptDialog').addEventListener('cancel',e=>{if(busy)e.preventDefault();});
+el('receiptDialog').addEventListener('close',()=>{if(lastFocus&&lastFocus.isConnected)lastFocus.focus();});
+el('cancelReceipt').onclick=()=>{if(!busy)el('receiptDialog').close();};
+el('receiptForm').onsubmit=e=>{e.preventDefault();task(async()=>{
+  if(!receiptDraft)return;
+  const args=receiptRetry||[token,{id:receiptDraft.move.id,version:receiptDraft.move.version,received:Number(el('receivedQuantity').value),notes:el('receiptNotes').value.trim()},receiptDraft.key];
+  if(args[1].received!==receiptDraft.move.quantity&&!args[1].notes){el('receiptError').textContent='Describí la diferencia para que GymBro pueda revisarla.';el('receiptError').hidden=false;el('receiptNotes').focus();return;}
+  el('receiptError').hidden=true;el('receiptFields').disabled=true;
+  let result;
+  try{result=await call('commerceReceive',args);}catch(error){
+    if(/Sesión vencida/.test(error.message||'')){reset();throw error;}
+    if(error.uncertain){receiptRetry=args;el('saveReceipt').textContent='Reintentar misma validación';}
+    el('receiptFields').disabled=!!receiptRetry;el('receiptError').textContent=error.message;el('receiptError').hidden=false;return;
+  }
+  receiptDraft=null;receiptRetry=null;el('receiptDialog').close();
+  msg(result.receipt.state==='CONFIRMADO'?'Recepción validada. No se sumó stock otra vez.':'Diferencia registrada para GymBro. El stock no se ajustó automáticamente.');
+  await loadHistory('stock',historyOffset);
+});};

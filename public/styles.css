@@ -39,3 +39,9 @@ button:focus-visible,input:focus,select:focus{outline-color:#ffe45b}
 .legacy-login .field{margin-top:12px}
 .account-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 #changeDialog .field{margin:12px 0}
+
+.history-actions{display:flex;flex-wrap:wrap;gap:6px 24px}.history-actions .link-button{text-align:left}
+.history-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:24px;flex-wrap:wrap}.history-pager span{color:var(--muted);font-size:14px}
+.stock-entry .order-body{grid-template-columns:1fr}.stock-entry .badge{white-space:normal;text-align:right}
+#receiptDialog fieldset{margin:0;padding:0;border:0;min-width:0}#receiptDialog textarea{font:inherit;display:block;width:100%;padding:12px;border:1px solid #635a2d;border-radius:12px;background:#090909;color:var(--yellow);resize:vertical}#receiptDialog .message{margin-top:16px}#receiptDialog label span{font-weight:400}#receiptDialog .detail{flex-wrap:wrap}
+@media(max-width:680px){.history-actions{width:100%;flex-direction:column;gap:2px}.history-pager .secondary{padding:10px 14px}.stock-entry .order-head{align-items:flex-start}.stock-entry h2{margin-top:0}}
