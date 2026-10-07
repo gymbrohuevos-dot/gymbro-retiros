@@ -13,6 +13,7 @@ function valid(action, a) {
   if (!Array.isArray(a)) return false;
   switch (action) {
     case 'branches': return a.length===0;
+    case 'commerceStock': return a.length===1 && text(a[0],64);
     case 'commerceHistory': return a.length===2 && text(a[0],64) && a[1] && ['delivered','stock'].includes(a[1].kind) && Number.isInteger(a[1].offset) && a[1].offset>=0 && a[1].offset<=10000;
     case 'commerceReceive': return a.length===3 && text(a[0],64) && a[1] && text(a[1].id,200) && text(a[1].version,200) && Number.isInteger(a[1].received) && a[1].received>=0 && a[1].received<=10000 && text(a[1].notes,500) && text(a[2],40) && /^req-[a-f0-9-]{32,36}$/.test(a[2]);
     case 'userLogin': return a.length===2 && text(a[0],40) && text(a[1],100) && a[1].length>0;
@@ -64,17 +65,38 @@ export default async function handler(request) {
     return response({ok:false,error:'Falta configurar la conexión del comercio. Contactá a GymBro.'}, 503);
   }
   try {
-    const payload = JSON.stringify({action, args, timestamp: Date.now()});
-    const signature = createHmac('sha256', secret).update(payload).digest('base64url');
-    // ContentService responde mediante una redirección a googleusercontent.com.
-    // fetch sigue la redirección, sin cookies ni sesión Google del cliente.
-    const upstream = await fetch(endpoint, {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({payload, signature}), redirect:'follow', signal:AbortSignal.timeout(25000)
-    });
-    if (!upstream.ok) throw Error('upstream');
-    const result = await upstream.json();
-    if (!result || typeof result.ok !== 'boolean') throw Error('envelope');
+    // Both stock reads share one deadline. No operation is retried automatically.
+    const signal = AbortSignal.timeout(25000);
+    const invoke = async (upstreamAction, upstreamArgs) => {
+      const payload = JSON.stringify({action:upstreamAction, args:upstreamArgs, timestamp: Date.now()});
+      const signature = createHmac('sha256', secret).update(payload).digest('base64url');
+      // ContentService responde mediante una redirección a googleusercontent.com.
+      // fetch sigue la redirección, sin cookies ni sesión Google del cliente.
+      const upstream = await fetch(endpoint, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({payload, signature}), redirect:'follow', signal
+      });
+      if (!upstream.ok) throw Error('upstream');
+      const result = await upstream.json();
+      if (!result || typeof result.ok !== 'boolean') throw Error('envelope');
+      return result;
+    };
+    let result;
+    if(action==='commerceStock') {
+      // Existing Apps Script actions validate the live merchant session first.
+      // Offset 10000 omits order details; only its server-derived branch is used.
+      result = await invoke('commerceHistory',[token,{kind:'delivered',offset:10000}]);
+      if(result.ok) {
+        const branch = result.data?.branch;
+        if(!/^[A-Z][A-Z0-9_]{0,79}$/.test(branch||''))throw Error('branch');
+        const snapshot = await invoke('syncSnapshot',[10000]);
+        // Never expose the snapshot, other branches, or administrative errors.
+        if(!snapshot.ok)throw Error('stock');
+        const stock = Object.hasOwn(snapshot.data?.stock||{},branch) ? snapshot.data.stock[branch] : null;
+        if(!stock || ![stock.physical,stock.reserved,stock.free].every(Number.isSafeInteger) || stock.free!==stock.physical-stock.reserved)throw Error('stock');
+        result = {ok:true,data:{branch,stock:{physical:stock.physical,reserved:stock.reserved,free:stock.free},updatedAt:Date.now()}};
+      }
+    } else result = await invoke(action,args);
     if (!result.ok) {
       const message = typeof result.error === 'string' ? result.error : 'No se pudo completar la operación.';
       if (/Conexión no autorizada|Solicitud vencida/.test(message)) return response({ok:false,error:'La conexión con Google necesita revisión. Contactá a GymBro.'}, 502);
