@@ -45,3 +45,11 @@ button:focus-visible,input:focus,select:focus{outline-color:#ffe45b}
 .stock-entry .order-body{grid-template-columns:1fr}.stock-entry .badge{white-space:normal;text-align:right}
 #receiptDialog fieldset{margin:0;padding:0;border:0;min-width:0}#receiptDialog textarea{font:inherit;display:block;width:100%;padding:12px;border:1px solid #635a2d;border-radius:12px;background:#090909;color:var(--yellow);resize:vertical}#receiptDialog .message{margin-top:16px}#receiptDialog label span{font-weight:400}#receiptDialog .detail{flex-wrap:wrap}
 @media(max-width:680px){.history-actions{width:100%;flex-direction:column;gap:2px}.history-pager .secondary{padding:10px 14px}.stock-entry .order-head{align-items:flex-start}.stock-entry h2{margin-top:0}}
+
+/* Saldo de la sucursal en la pantalla principal. */
+.stock-summary{padding:24px 28px;margin-bottom:20px;background:#17160e;border:1px solid #635a2d;border-radius:18px}
+.stock-summary-head{display:flex;align-items:center;justify-content:space-between;gap:16px}.stock-summary h2{font-size:18px;letter-spacing:-.3px}.stock-summary-head .link-button{flex-shrink:0}
+.stock-summary-body{display:flex;align-items:center;justify-content:space-between;gap:28px;margin:8px 0 16px}.stock-main{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}.stock-main strong{font-size:52px;letter-spacing:-2px;line-height:1.1}.stock-main span{font-size:16px;color:#e0d59f}
+.stock-breakdown{display:flex;gap:28px;margin:0}.stock-breakdown div{display:flex;flex-direction:column;gap:2px}.stock-breakdown dt{font-size:13px;color:var(--muted)}.stock-breakdown dd{font-size:25px;font-weight:700;margin:0}
+.stock-explanation,.stock-status{font-size:13px;color:var(--muted)}.stock-status{margin-top:8px;min-height:20px}.stock-warning{color:#ffb8b8}
+@media(max-width:680px){.stock-summary{padding:18px 20px}.stock-summary-head{gap:8px;align-items:center}.stock-summary h2{font-size:17px}.stock-summary-head .link-button{font-size:13px}.stock-summary-body{align-items:flex-start;flex-direction:column;gap:18px;margin-top:10px}.stock-main strong{font-size:48px}.stock-breakdown{width:100%;gap:24px;border-top:1px solid #39351d;padding-top:12px}.stock-breakdown div{flex:1}.stock-breakdown dd{font-size:23px}}
