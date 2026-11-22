@@ -30,6 +30,7 @@ function valid(action, a) {
     case 'adminCancel': return a.length===3 && text(a[0],64) && text(a[1],200) && text(a[2],200);
     case 'adminLogout': return a.length===1 && text(a[0],64);
     case 'ingresar': return a.length === 2 && text(a[0],80) && /^[A-Z][A-Z0-9_]*$/.test(a[0]) && text(a[1], 100) && a[1].length > 0;
+    case 'entregarStore': return a.length===4 && text(a[0],64) && /^[a-f0-9-]{36}$/.test(a[1]) && text(a[2],80) && /^\d{6}$/.test(a[3]);
     case 'buscar': return a.length === 3 && text(a[0], 64) && text(a[1], 80) && typeof a[2] === 'boolean';
     case 'entregar': return a.length === 4 && text(a[0], 64) && text(a[1], 200) && a[1].length > 0 && text(a[2], 200) && a[2].length > 0 && typeof a[3] === 'boolean';
     case 'salir': return a.length === 1 && text(a[0], 64);
@@ -82,7 +83,22 @@ export default async function handler(request) {
       return result;
     };
     let result;
-    if(action==='commerceStock') {
+    if(action==='entregarStore'||(action==='buscar'&&/^\d{6}$/.test(args[1].trim()))) {
+      const session=await invoke('commerceHistory',[token,{kind:'delivered',offset:10000}]);
+      result=session;
+      if(session.ok){
+        const branch=session.data?.branch;
+        if(!/^[A-Z][A-Z0-9_]{0,79}$/.test(branch||''))throw Error('branch');
+        const deliver=action==='entregarStore',code=deliver?args[3]:args[1].trim();
+        const payload=JSON.stringify({action:deliver?'deliver':'lookup',branch,code,time:Date.now(),...(deliver?{id:args[1],version:args[2]}:{})});
+        const signature=createHmac('sha256',secret).update('gymbro-store-branch-v1\n'+payload).digest('base64url');
+        const upstream=await fetch('https://gymbro-operaciones.netlify.app/api/branch-store-pickup',{method:'POST',redirect:'error',signal,
+          headers:{'Content-Type':'application/json'},body:JSON.stringify({payload,signature})});
+        result=await upstream.json();
+        if(typeof result?.ok!=='boolean')throw Error('store');
+        if(!deliver&&result.ok&&!result.data.orders.length)result=await invoke('buscar',args);
+      }
+    } else if(action==='commerceStock') {
       // Existing Apps Script actions validate the live merchant session first.
       // Offset 10000 omits order details; only its server-derived branch is used.
       result = await invoke('commerceHistory',[token,{kind:'delivered',offset:10000}]);
