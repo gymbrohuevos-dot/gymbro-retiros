@@ -40,7 +40,10 @@ el('changePassword').onclick=()=>{el('changeDialog').showModal();el('currentPass
 el('cancelChange').onclick=()=>el('changeDialog').close();
 el('changeForm').onsubmit=e=>{e.preventDefault();task(async()=>{try{const r=await call('userChangePassword',[token,el('currentPassword').value,el('nextPassword').value]);el('changeDialog').close();reset();msg(r.message);}finally{el('changeForm').reset();}});};
 let storeSearchCode='';
-el('searchForm').onsubmit=e=>{e.preventDefault();clearHistory();task(async()=>{el('results').replaceChildren();el('resultsHeading').hidden=true;msg('Buscando pedido…');storeSearchCode=el('query').value.trim();render(await call('buscar',[token,el('query').value,false]));msg('');});};
+el('searchForm').onsubmit=e=>{e.preventDefault();clearHistory();task(async()=>{el('results').replaceChildren();el('resultsHeading').hidden=true;msg('Buscando pedido…');storeSearchCode=el('query').value.trim();const storeCode=/^\d{6}$/.test(storeSearchCode);
+  const data=storeCode?await call('buscarStore',[token,storeSearchCode]):await call('buscar',[token,el('query').value,false]);
+  render(data);
+  if(storeCode&&!data.orders.length)empty('No encontramos ese código en '+labelBranch(branch),'Verificá los seis dígitos y el punto de retiro que figuran en Mi pedido.');msg('');});};
 
 el('no').onclick=()=>el('confirm').close();el('confirm').addEventListener('close',()=>{if(lastFocus&&lastFocus.isConnected)lastFocus.focus();});
 el('yes').onclick=()=>task(async()=>{const o=chosen;if(!o)return;el('confirm').close();el('results').replaceChildren();el('resultsHeading').hidden=true;try{const r=o.store?await call('entregarStore',[token,o.id,o.version,storeSearchCode]):await call('entregar',[token,o.id,o.version,o.foreign]);if(/^Entrega registrada:/.test(r.message))success(r.message);else msg(r.message);empty('Listo para el próximo retiro','Buscá otro pedido para continuar.');el('query').value='';}catch(e){if(/Sesión vencida/.test(e.message||''))reset();msg((e.message||'No se pudo confirmar.')+'\nVolvé a buscar el pedido para verificar su estado antes de reintentar.',true);}chosen=null;if(token){invalidateStock();void refreshStock();}});
