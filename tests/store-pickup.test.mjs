@@ -24,9 +24,12 @@ test('branch session supplies scope and lookups preserve legacy orders',async()=
  try{
   assert.equal((await call('buscar',['sesion','654321',false])).data.orders[0].id,'store');
   assert.equal((await call('entregarStore',['sesion','f'.repeat(36),'version','654321'])).ok,true);
-  available=false;assert.equal((await call('buscar',['sesion','654321',false])).data.orders[0].id,'legacy');
+  assert.equal((await call('buscarStore',['sesion','654321'])).data.orders[0].id,'store');
+  available=false;
+  assert.deepEqual((await call('buscarStore',['sesion','654321'])).data.orders,[]);
+  assert.deepEqual((await call('buscar',['sesion','654321',false])).data.orders,[]);
   assert.equal((await call('buscar',['sesion','1234',false])).data.orders[0].id,'legacy');
-  assert.deepEqual(actions,['commerceHistory','lookup','commerceHistory','deliver','commerceHistory','lookup','buscar','buscar']);
+  assert.deepEqual(actions,['commerceHistory','lookup','commerceHistory','deliver','commerceHistory','lookup','commerceHistory','lookup','commerceHistory','lookup','buscar']);
  }finally{
   globalThis.fetch=previousFetch;
   if(oldEndpoint===undefined)delete process.env.GB_APPS_SCRIPT_URL;else process.env.GB_APPS_SCRIPT_URL=oldEndpoint;

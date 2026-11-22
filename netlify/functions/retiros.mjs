@@ -30,6 +30,7 @@ function valid(action, a) {
     case 'adminCancel': return a.length===3 && text(a[0],64) && text(a[1],200) && text(a[2],200);
     case 'adminLogout': return a.length===1 && text(a[0],64);
     case 'ingresar': return a.length === 2 && text(a[0],80) && /^[A-Z][A-Z0-9_]*$/.test(a[0]) && text(a[1], 100) && a[1].length > 0;
+    case 'buscarStore': return a.length===2 && text(a[0],64) && text(a[1],6) && /^\d{6}$/.test(a[1]);
     case 'entregarStore': return a.length===4 && text(a[0],64) && /^[a-f0-9-]{36}$/.test(a[1]) && text(a[2],80) && /^\d{6}$/.test(a[3]);
     case 'buscar': return a.length === 3 && text(a[0], 64) && text(a[1], 80) && typeof a[2] === 'boolean';
     case 'entregar': return a.length === 4 && text(a[0], 64) && text(a[1], 200) && a[1].length > 0 && text(a[2], 200) && a[2].length > 0 && typeof a[3] === 'boolean';
@@ -83,7 +84,7 @@ export default async function handler(request) {
       return result;
     };
     let result;
-    if(action==='entregarStore'||(action==='buscar'&&/^\d{6}$/.test(args[1].trim()))) {
+    if(action==='buscarStore'||action==='entregarStore'||(action==='buscar'&&/^\d{6}$/.test(args[1].trim()))) {
       const session=await invoke('commerceHistory',[token,{kind:'delivered',offset:10000}]);
       result=session;
       if(session.ok){
@@ -96,7 +97,7 @@ export default async function handler(request) {
           headers:{'Content-Type':'application/json'},body:JSON.stringify({payload,signature})});
         result=await upstream.json();
         if(typeof result?.ok!=='boolean')throw Error('store');
-        if(!deliver&&result.ok&&!result.data.orders.length)result=await invoke('buscar',args);
+        if(!deliver && result.ok && !Array.isArray(result.data?.orders))throw Error('store orders');
       }
     } else if(action==='commerceStock') {
       // Existing Apps Script actions validate the live merchant session first.
